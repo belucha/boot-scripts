@@ -47,7 +47,7 @@ if [ "x${boot_drive}" = "xmmcblk1p1" ] ; then
 fi
 
 check_running_system () {
-	if [ ! -f /boot/uboot/uEnv.txt ] ; then
+	if [ ! -f /boot/uboot/bbb-uEnv.txt ] ; then
 		echo "Error: script halting, system unrecognized..."
 		echo "unable to find: [/boot/uboot/uEnv.txt] is ${source}p1 mounted?"
 		exit 1
