@@ -47,6 +47,8 @@ if [ "x${boot_drive}" = "xmmcblk1p1" ] ; then
 fi
 
 check_running_system () {
+	# this is not mounted by default anymore
+	mount $(source)p1 /boot/uboot
 	if [ ! -f /boot/uboot/bbb-uEnv.txt ] ; then
 		echo "Error: script halting, system unrecognized..."
 		echo "unable to find: [/boot/uboot/uEnv.txt] is ${source}p1 mounted?"
@@ -61,20 +63,15 @@ check_running_system () {
 
 update_boot_files () {
 	if [ ! -f /boot/initrd.img-$(uname -r) ] ; then
-		update-initramfs -c -k $(uname -r)
-	else
-		update-initramfs -u -k $(uname -r)
+		echo "/boot/initrd.img-$(uname -r) not found"
+		exit 1
 	fi
 
-	if [ -f /boot/vmlinuz-$(uname -r) ] ; then
-		cp -v /boot/vmlinuz-$(uname -r) /boot/uboot/zImage
+	if [ ! -f /boot/vmlinuz-$(uname -r) ] ; then
+		echo "-f /boot/vmlinuz-$(uname -r) not found"
+		exit 1
 	fi
-
-	if [ -f /boot/initrd.img-$(uname -r) ] ; then
-		cp -v /boot/initrd.img-$(uname -r) /boot/uboot/initrd.img
-	fi
-
-	mkimage -A arm -O linux -T ramdisk -C none -a 0 -e 0 -n initramfs -d /boot/initrd.img-$(uname -r) /boot/uboot/uInitrd
+	#mkimage -A arm -O linux -T ramdisk -C none -a 0 -e 0 -n initramfs -d /boot/initrd.img-$(uname -r) /boot/uboot/uInitrd
 }
 
 flush_cache () {
@@ -170,36 +167,18 @@ copy_boot () {
 		touch /tmp/boot/flash-eMMC.txt || write_failure
 		flush_cache
 	fi
-
-	unset root_uuid
-	root_uuid=$(/sbin/blkid -s UUID -o value ${destination}p2)
-	if [ "${root_uuid}" ] ; then
-		root_uuid="UUID=${root_uuid}"
-		device_id=$(cat /tmp/boot/uEnv.txt | grep mmcroot | grep mmcblk | awk '{print $1}' | awk -F '=' '{print $2}')
-		if [ ! "${device_id}" ] ; then
-			device_id=$(cat /tmp/boot/uEnv.txt | grep mmcroot | grep UUID | awk '{print $1}' | awk -F '=' '{print $3}')
-			device_id="UUID=${device_id}"
-		fi
-		sed -i -e 's:'${device_id}':'${root_uuid}':g' /tmp/boot/uEnv.txt
-	else
-		root_uuid="${source}p2"
-	fi
-	flush_cache
 	umount ${destination}p1 || true
 }
 
 copy_rootfs () {
 	mkdir -p /tmp/rootfs/ || true
 	mount ${destination}p2 /tmp/rootfs/ -o async,noatime
-	rsync -aAXv /* /tmp/rootfs/ --exclude={/dev/*,/proc/*,/sys/*,/tmp/*,/run/*,/mnt/*,/media/*,/lost+found,/boot/*,/lib/modules/*} || write_failure
+	rsync -aAXv /* /tmp/rootfs/ --exclude={/dev/*,/proc/*,/sys/*,/tmp/*,/run/*,/mnt/*,/media/*,/lost+found,/boot/uboot/*,/lib/modules/*} || write_failure
 	flush_cache
-
+	
 	mkdir -p /tmp/rootfs/boot/uboot/ || true
 	mkdir -p /tmp/rootfs/lib/modules/`uname -r` || true
 	rsync -aAXv /lib/modules/`uname -r`/* /tmp/rootfs/lib/modules/`uname -r`/ || write_failure
-	flush_cache
-
-	cp /boot/initrd.img-`uname -r` /tmp/rootfs/boot/ || write_failure
 	flush_cache
 
 	unset boot_uuid
@@ -210,6 +189,23 @@ copy_rootfs () {
 		boot_uuid="${source}p1"
 	fi
 
+	unset root_uuid
+	
+	root_uuid=$(/sbin/blkid -s UUID -o value ${destination}p2)
+	if [ "${root_uuid}" ] ; then
+		root_uuid="UUID=${root_uuid}"
+		device_id=$(cat /tmp/rootfs/boot/bbb-uEnv.txt | grep mmcroot | grep mmcblk | awk '{print $1}' | awk -F '=' '{print $2}')
+		if [ ! "${device_id}" ] ; then
+			device_id=$(cat /tmp/rootfs/boot/bbb-uEnv.txt | grep mmcroot | grep UUID | awk '{print $1}' | awk -F '=' '{print $3}')
+			device_id="UUID=${device_id}"
+		fi
+		sed -i -e 's:'${device_id}':'${root_uuid}':g' /tmp/rootfs/boot/bbb-uEnv.txt
+	else
+		root_uuid="${source}p2"
+	fi
+	flush_cache
+	unset root_uuid
+	
 	unset root_filesystem
 	root_filesystem=$(mount | grep ${source}p2 | awk '{print $5}')
 	if [ ! "${root_filesystem}" ] ; then
