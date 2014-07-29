@@ -31,16 +31,16 @@ fi
 unset boot_drive
 boot_drive=$(LC_ALL=C lsblk -l | grep "/" | awk '{print $1}')
 
-if [ "x${boot_drive}" = "xmmcblk0p1" ] ; then
+if [ "x${boot_drive}" = "xmmcblk0p2" ] ; then
 	source="/dev/mmcblk0"
 	destination="/dev/mmcblk1"
 else
-	if [ "x${boot_drive}" = "xmmcblk1p1" ] ; then
+	if [ "x${boot_drive}" = "xmmcblk1p2" ] ; then
 		source="/dev/mmcblk1"
 		destination="/dev/mmcblk0"
 	else
 		echo "Error: script halting, system unrecognized..."
-		echo "unable to identify boot drive device /dev/${boot_drive}"
+		echo "unable to identify boot drive device ${boot_drive}"
 		exit 1
 	fi
 fi
