@@ -29,21 +29,20 @@ if ! id | grep -q root; then
 fi
 
 unset boot_drive
-boot_drive=$(LC_ALL=C lsblk -l | grep "/boot/uboot" | awk '{print $1}')
-
-if [ "x${boot_drive}" = "x" ] ; then
-	echo "Error: script halting, system unrecognized..."
-	exit 1
-fi
+boot_drive=$(LC_ALL=C lsblk -l | grep "/" | awk '{print $1}')
 
 if [ "x${boot_drive}" = "xmmcblk0p1" ] ; then
 	source="/dev/mmcblk0"
 	destination="/dev/mmcblk1"
-fi
-
-if [ "x${boot_drive}" = "xmmcblk1p1" ] ; then
-	source="/dev/mmcblk1"
-	destination="/dev/mmcblk0"
+else
+	if [ "x${boot_drive}" = "xmmcblk1p1" ] ; then
+		source="/dev/mmcblk1"
+		destination="/dev/mmcblk0"
+	else
+		echo "Error: script halting, system unrecognized..."
+		echo "unable to identify boot drive device /dev/${boot_drive}"
+		exit 1
+	fi
 fi
 
 check_running_system () {
